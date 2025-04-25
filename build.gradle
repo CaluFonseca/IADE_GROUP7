@@ -9,7 +9,7 @@ buildscript {
     maven { url 'https://s01.oss.sonatype.org/content/repositories/snapshots/' }
   }
   dependencies {
-
+    //implementation "com.badlogicgames.libgdx:gdx-tiled-preloader:$libgdxVersion"
 
   }
 }
@@ -58,7 +58,7 @@ configure(subprojects) {
 
 subprojects {
   version = "$projectVersion"
-  ext.appName = 'First GDX Project'
+  ext.appName = 'UniverseConquer'
   repositories {
     mavenCentral()
     maven { url 'https://s01.oss.sonatype.org' }
@@ -70,4 +70,4 @@ subprojects {
   }
 }
 
-eclipse.project.name = 'First GDX Project' + '-parent'
+eclipse.project.name = 'UniverseConquer' + '-parent'

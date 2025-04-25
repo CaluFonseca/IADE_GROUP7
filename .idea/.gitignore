@@ -1,15 +1,8 @@
 # Default ignored files
 /shelf/
 /workspace.xml
-<<<<<<< HEAD
-/misc.xml
-/modules.xml
-/vcs.xml
-=======
 # Editor-based HTTP Client requests
 /httpRequests/
 # Datasource local storage ignored files
 /dataSources/
 /dataSources.local.xml
-
->>>>>>> 78e1311 (Adicionado .idea ao .gitignore)

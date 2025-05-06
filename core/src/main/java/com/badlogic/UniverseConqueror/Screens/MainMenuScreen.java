@@ -223,9 +223,7 @@ public class MainMenuScreen implements Screen {
     }
 
     @Override
-    public void hide() {
-        stage.dispose();
-    }
+    public void hide() {}
 
     @Override
     public void pause() {}

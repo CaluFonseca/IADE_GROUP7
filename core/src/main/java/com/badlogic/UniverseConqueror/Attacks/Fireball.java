@@ -1,61 +1,81 @@
 package com.badlogic.UniverseConqueror.Attacks;
 
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.graphics.Texture;
-import com.badlogic.gdx.graphics.g2d.SpriteBatch;
-import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g2d.*;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.math.Rectangle;
-import com.badlogic.gdx.graphics.OrthographicCamera;
+import com.badlogic.gdx.utils.Array;
 
 public class Fireball {
-    private Vector2 position;
-    private Vector2 velocity;
-    private static final float SPEED = 600f; // Velocidade do fireball
-    private static Texture texture; // Usar textura estática partilhada
-    private static TextureRegion textureRegion; // TextureRegion para renderização
-    private Rectangle bounds;
+    private Vector2 position;      // Center position of the fireball
+    private Vector2 velocity;      // Velocity of the fireball
+    private static final float SPEED = 800f;  // Speed of the fireball
+    private static Texture texture; // Static texture for the fireball
+    private Rectangle bounds;      // Bounds for collision detection
 
+    private ParticleEffect particleEffect; // Particle effect for trail
+
+    private static final float SCALE = 0.1f; // Scale of the fireball
+
+    // Constructor
     public Fireball(float x, float y, Vector2 target) {
-        // Carrega a textura uma vez (boas práticas)
         if (texture == null) {
-            texture = new Texture("fireball.png"); // Deve estar em assets
-            textureRegion = new TextureRegion(texture); // Cria o TextureRegion
+            texture = new Texture(Gdx.files.internal("fireball.png"));
+            texture.setFilter(Texture.TextureFilter.Linear, Texture.TextureFilter.Linear);
         }
 
-        float scale = 0.2f; // Tamanho ajustado do fireball
-        float fireballWidth = textureRegion.getRegionWidth() * scale;
-        float fireballHeight = textureRegion.getRegionHeight() * scale;
+        // Calculate width/height based on texture and scale
+        float width = texture.getWidth() * SCALE;
+        float height = texture.getHeight() * SCALE;
 
-        // Posiciona o fireball para sair do centro
-        this.position = new Vector2(x - fireballWidth / 2, y - fireballHeight / 2);
+        // Set position centered
+        this.position = new Vector2(x, y);
 
-        this.bounds = new Rectangle(position.x, position.y, fireballWidth, fireballHeight);
+        // Set bounds with real scaled size
+        this.bounds = new Rectangle(position.x - width / 2, position.y - height / 2, width, height);
 
-        // Define a direção e velocidade do fireball
+        // Direction calculation
         Vector2 direction = target.cpy().sub(position).nor();
         this.velocity = direction.scl(SPEED);
+
+        // Particle Effect for trail
+        particleEffect = new ParticleEffect();
+        particleEffect.load(Gdx.files.internal("effects/fire_trail.p"), Gdx.files.internal("effects"));
+        particleEffect.start();
     }
 
     public void update(float delta) {
-        position.mulAdd(velocity, delta); // Atualiza a posição com delta time
-        bounds.setPosition(position);
+        // Update position
+        position.mulAdd(velocity, delta);
+
+        // Update bounds centered
+        bounds.setPosition(position.x - bounds.width / 2, position.y - bounds.height / 2);
+
+        // Update particles
+        particleEffect.setPosition(position.x, position.y);
+        particleEffect.update(delta);
     }
 
     public void render(SpriteBatch batch) {
-        float scale = 0.2f;
-        float width = textureRegion.getRegionWidth() * scale;
-        float height = textureRegion.getRegionHeight() * scale;
+        // Draw particle effect first (behind the fireball)
+        particleEffect.draw(batch);
 
-        // Calcula o ângulo do fireball com base na direção
+        float width = texture.getWidth() * SCALE;
+        float height = texture.getHeight() * SCALE;
         float angle = velocity.angleDeg();
 
-        // Aplica rotação, centraliza a origem da rotação
-        batch.draw(textureRegion,
-            position.x, position.y,
-            width / 2, height / 2, // origem para rotação
+        // Draw the fireball centered
+        batch.draw(texture,
+            position.x - width / 2, position.y - height / 2,
+            width / 2, height / 2, // origin at center
             width, height,
-            1f, 1f, // escala
-            angle
+            1f, 1f,
+            angle,
+            0, 0,
+            texture.getWidth(), texture.getHeight(),
+            false, false
         );
     }
 
@@ -71,11 +91,10 @@ public class Fireball {
             position.y > camera.position.y + camera.viewportHeight / 2 + margin;
     }
 
-    public static void disposeTexture() {
-        if (texture != null) {
-            texture.dispose();
-            texture = null;
-            textureRegion = null; // Limpa o TextureRegion
+    public void dispose() {
+
+        if (particleEffect != null) {
+            particleEffect.dispose();
         }
     }
 }

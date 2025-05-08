@@ -28,10 +28,10 @@ public class ControlsScreen implements Screen {
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);  // Clear the screen
 
         batch.begin();  // Start the batch for drawing
-        font.draw(batch, "Controlos do Jogo: \n- W: Mover para cima\n- S: Mover para baixo\n- A: Mover para esquerda\n- D: Mover para direita", 100, 300);
+        font.draw(batch, "Controlos do Jogo: \n- W: Mover para cima\n- S: Mover para baixo\n- A: Mover para esquerda\n- C: Ativar Câmera \n- RightMouse: Mover Câmera\n-Shift + WASD: Mover mais rápido\n- leftMouse: Tiro \n-E + leftMouse: SuperAtaque \n-Espaço: Salto \n- TAB: Defender \n - ESC: Pausa ", 100, 300);
         batch.end();  // End the batch
-    }
 
+    }
     @Override
     public void resize(int width, int height) {}
 

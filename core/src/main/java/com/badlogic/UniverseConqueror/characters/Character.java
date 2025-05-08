@@ -20,6 +20,7 @@ public class Character {
     // Basic attributes
     private String name;
     private Vector2 position;
+    private Vector2 velocity;
     private int health;
     private int attackPower;
     private int itemsCollected;
@@ -87,6 +88,7 @@ public class Character {
         this.loadedTextures = new ArrayList<>();
         this.itemsCollected = 0;
         this.groundY = y;
+        this.velocity = new Vector2(0, 0);
 
         idleAnimation = loadAnimation("armysoldier/Idle", 2, 0.2f);
         walkAnimation = loadAnimation("armysoldier/Walk", 7, 0.1f);
@@ -198,20 +200,22 @@ public class Character {
     }
 
     if (isJumping) {
-        velocityY += gravity * delta;
-        position.y += velocityY * delta;
+        velocity.y += gravity * delta;
+        position.y += velocity.y * delta;
 
         if (health > 25) {
-            if (velocityY > 0) setState(State.JUMP);
-            else if (velocityY < 0) setState(State.FALL);
+            if (velocity.y > 0) setState(State.JUMP);
+            else if (velocity.y < 0) setState(State.FALL);
         }
 
         if (position.y <= groundY) {
             position.y = groundY;
             isJumping = false;
-            velocityY = 0;
+            velocity.y = 0;
             setIdleBasedOnHealth();
         }
+
+
     }
 
     switch (currentState) {
@@ -263,13 +267,15 @@ public class Character {
 
         if (!isDead && !isJumping) {
             float adjustedSpeed = baseSpeed;
+            if (movementLocked && !isJumping) {
+                deltaX = 0;
+                deltaY = 0;
+            }
 
             if (isMoving) {
                 if (!shiftPressed) {
                     setWalkBasedOnHealth();
-                    if (walkSoundId == -1) {
-                        walkSoundId = walkSound.loop(0.5f);
-                    }
+                    if (walkSoundId == -1) walkSoundId = walkSound.loop(0.5f);
                     if (fastSoundId != -1) {
                         stopSound(fastMoveSound, fastSoundId);
                         fastSoundId = -1;
@@ -278,9 +284,7 @@ public class Character {
                     if (health > 25) {
                         setState(State.FAST_MOVE);
                         adjustedSpeed *= fastSpeedMultiplier;
-                        if (fastSoundId == -1) {
-                            fastSoundId = fastMoveSound.loop(1.0f);
-                        }
+                        if (fastSoundId == -1) fastSoundId = fastMoveSound.loop(1.0f);
                         if (walkSoundId != -1) {
                             stopSound(walkSound, walkSoundId);
                             walkSoundId = -1;
@@ -302,18 +306,36 @@ public class Character {
             if (deltaX > 0) facingRight = true;
             else if (deltaX < 0) facingRight = false;
 
-            position.add(deltaX * adjustedSpeed * Gdx.graphics.getDeltaTime(), deltaY * adjustedSpeed * Gdx.graphics.getDeltaTime());
+            // Define apenas a velocity, sem mover o player diretamente
+            Vector2 move = new Vector2(deltaX, deltaY);
+            if (move.len() > 0) {
+                move.nor().scl(adjustedSpeed);
+                velocity.set(move); // velocidade em unidades/segundo
+            } else {
+                velocity.setZero();
+            }
         }
     }
+
 
     // Make the character jump
     public void jump() {
         if (!isJumping && !isDead && health > 25) {
-            velocityY = jumpStrength;
+            velocity.y = jumpStrength;
             isJumping = true;
+            unlockMovement();
+
+            if (facingRight) velocity.x = baseSpeed * 0.6f;
+            else velocity.x = -baseSpeed * 0.6f;
+
+            System.out.println("Saltou. Movimento desbloqueado.");
             setState(State.JUMP);
             jumpSound.play();
-            groundY = position.y;
+
+            // Só atualiza groundY se estiver no chão (para não bugar quando no ar)
+            if (Math.abs(position.y - groundY) < 10) {
+                groundY = position.y;
+            }
         }
     }
 
@@ -482,5 +504,66 @@ public class Character {
         stateTime = 0f; // Reset animation timer
         setAnimating(true);
     }
+    public Vector2 getVelocity() {
+        return this.velocity;  // Assuming 'velocity' is a Vector2 field in the class
+    }
 
+    public void setVelocity(float x, float y) {
+        this.velocity.set(x, y);
+    }
+
+    // Método para verificar se o personagem está no chão
+    public boolean isOnGround() {
+        // Verifique se a posição do personagem está próxima ao chão
+        return velocity.y == 0;  // ou qualquer outra lógica que defina que ele está tocando o chão
+    }
+
+    // Método para verificar se o personagem está pulando
+    public boolean isJumping() {
+        return currentState == Character.State.JUMP;  // Ajuste isso conforme o estado de pulo no seu código
+    }
+    public void stopMovement() {
+        this.velocity.x = 0;  // Zera a velocidade horizontal
+    }
+
+    private boolean movementLocked = false;
+
+    public void lockMovementUntilJump() {
+        movementLocked = true;
+    }
+
+    public void unlockMovement() {
+        movementLocked = false;
+    }
+
+    public boolean isMovementLocked() {
+        return movementLocked;
+    }
+    public boolean isAbove(Rectangle rect) {
+     //   return position.y > rect.y + rect.height;
+        return (position.y > rect.y + rect.height - 5); // 5 de margem
+    }
+    public void landOnPlatform(Rectangle platform) {
+        position.y = platform.y + platform.height;
+        groundY = position.y;
+        isJumping = false;
+        velocity.y = 0;
+        unlockMovement();
+        setIdleBasedOnHealth();
+    }
+    public void checkIfLanded(Array<Rectangle> platforms) {
+        for (Rectangle platform : platforms) {
+            if (getBounds().overlaps(platform) && velocity.y <= 0) {
+                isJumping = false;
+              //  grounded = true;
+
+                // Se estiver acima da plataforma, pode andar
+                if (isAbove(platform)) {
+                    unlockMovement();
+                }
+
+                return;
+            }
+        }
+    }
 }

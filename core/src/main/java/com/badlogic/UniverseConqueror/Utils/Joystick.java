@@ -24,12 +24,15 @@ public class Joystick extends Actor {
         this.knobX = centerX;
         this.knobY = centerY;
 
+        // Define área clicável do joystick
         setBounds(centerX - radius, centerY - radius, radius * 2, radius * 2);
+
+        // Adiciona eventos de toque
         addListener(new InputListener() {
             @Override
             public boolean touchDown(InputEvent event, float x, float y, int pointer, int button) {
                 isDragging = true;
-                updateKnob(x, y);
+                updateKnob(x, y); // x e y já estão no espaço local ao ator
                 return true;
             }
 
@@ -41,18 +44,16 @@ public class Joystick extends Actor {
             @Override
             public void touchUp(InputEvent event, float x, float y, int pointer, int button) {
                 isDragging = false;
-                knobX = baseCircle.x;
-                knobY = baseCircle.y;
+                resetKnob();
             }
         });
-
     }
 
     public Vector2 getDirection() {
         if (!isDragging) return new Vector2(0, 0);
         float dx = knobX - baseCircle.x;
         float dy = knobY - baseCircle.y;
-        return new Vector2(dx, dy).nor();
+        return new Vector2(dx, dy).nor().scl(100f);
     }
 
     public boolean isMoving() {
@@ -67,40 +68,27 @@ public class Joystick extends Actor {
             knobCircle.radius * 2, knobCircle.radius * 2);
     }
 
-  //  @Override
-    public boolean touchDown(float x, float y, int pointer, int button) {
-        isDragging = true;
-        updateKnob(x, y);
-        return true;
+    private void updateKnob(float x, float y) {
+        // x e y são locais ao ator, portanto transformamos para coordenadas absolutas
+        Vector2 localTouch = new Vector2(x + getX(), y + getY());
+        Vector2 dir = new Vector2(localTouch.x - baseCircle.x, localTouch.y - baseCircle.y);
+
+        // Limita o movimento do botão ao raio do círculo base
+        if (dir.len() > baseCircle.radius) {
+            dir.nor().scl(baseCircle.radius);
+        }
+
+        knobX = baseCircle.x + dir.x;
+        knobY = baseCircle.y + dir.y;
     }
 
-   // @Override
-    public void touchDragged(float x, float y, int pointer) {
-        updateKnob(x, y);
-    }
-
-   // @Override
-    public void touchUp(float x, float y, int pointer, int button) {
-        isDragging = false;
+    private void resetKnob() {
         knobX = baseCircle.x;
         knobY = baseCircle.y;
     }
 
-    private void updateKnob(float x, float y) {
-        Vector2 localTouch = new Vector2(x, y).add(getX(), getY());
-        Vector2 dir = new Vector2(localTouch.x - baseCircle.x, localTouch.y - baseCircle.y);
-        if (dir.len() > baseCircle.radius) {
-            dir.nor().scl(baseCircle.radius);
-        }
-        knobX = baseCircle.x + dir.x;
-        knobY = baseCircle.y + dir.y;
-    }
-    // Dispose method to clean up resources
     public void dispose() {
         baseTexture.dispose();
         knobTexture.dispose();
     }
-
-
 }
-

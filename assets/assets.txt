@@ -65,6 +65,7 @@ audio/laser_shoot.mp3
 audio/rapid_move_sound.mp3
 audio/rapid_move_sound_X.mp3
 audio/space_intro_sound.mp3
+audio/thud.mp3
 audio/walk_on_grass.mp3
 background.jpg
 background_pause.jpg

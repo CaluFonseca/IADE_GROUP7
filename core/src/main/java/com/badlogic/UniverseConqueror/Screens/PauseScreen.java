@@ -83,7 +83,7 @@ public class PauseScreen implements Screen {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
                 clickSound.play(); // Play click sound
-                gameScreen.resumeGame(); // Resume the game
+             //   gameScreen.resumeGame(); // Resume the game
                 game.setScreen(gameScreen); // Switch back to the game screen
             }
         });

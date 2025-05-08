@@ -41,7 +41,8 @@ public class MainMenuScreen implements Screen {
     private Game game;
 
     private boolean isAudioOn = true;
-    private float currentVolume = 1.0f;
+    private float currentVolume = 0.1f;
+    private float sfxVolume = 0.1f;
 
     public MainMenuScreen(Game game) {
         this.game = game;
@@ -70,7 +71,7 @@ public class MainMenuScreen implements Screen {
         playButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 stopMusic();
                 ((GameLauncher) game).startGame(); // Chama método de GameLauncher
             }
@@ -80,7 +81,7 @@ public class MainMenuScreen implements Screen {
         audioButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 isAudioOn = !isAudioOn;
                 toggleAudio();
             }
@@ -90,7 +91,7 @@ public class MainMenuScreen implements Screen {
         volumeUpButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 currentVolume = Math.min(currentVolume + 0.1f, 1.0f);
                 volumeSlider.setValue(currentVolume);
                 setMusicVolume();
@@ -101,7 +102,7 @@ public class MainMenuScreen implements Screen {
         volumeDownButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 currentVolume = Math.max(currentVolume - 0.1f, 0.0f);
                 volumeSlider.setValue(currentVolume);
                 setMusicVolume();
@@ -112,7 +113,7 @@ public class MainMenuScreen implements Screen {
         controlsButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 stopMusic();
                 game.setScreen(new ControlsScreen(game));
             }
@@ -122,7 +123,7 @@ public class MainMenuScreen implements Screen {
         creditsButton.addListener(new ChangeListener() {
             @Override
             public void changed(ChangeEvent event, Actor actor) {
-                buttonClickSound.play(); // Toca o som de clique
+                buttonClickSound.play(sfxVolume); // Toca o som de clique
                 stopMusic();
                 game.setScreen(new CreditsScreen(game)); // Redireciona para a tela de créditos
             }
@@ -198,6 +199,7 @@ public class MainMenuScreen implements Screen {
     public void show() {
         Gdx.input.setInputProcessor(stage);
         if (isAudioOn && !music.isPlaying()) {
+            music.setVolume(currentVolume);
             music.setLooping(true);
             music.play();
         }

@@ -26,7 +26,7 @@ public class AnimationComponent implements Component {
         animations.put(StateComponent.State.JUMP, loadAnimation("armysoldier/Jump", 2, 0.3f));
         animations.put(StateComponent.State.FALL, loadAnimation("armysoldier/Fall", 1, 0.15f));
         animations.put(StateComponent.State.DEATH, loadAnimation("armysoldier/Death", 3, 0.15f));
-        animations.put(StateComponent.State.HURT, loadAnimation("armysoldier/Hurt", 2, 0.12f));
+        animations.put(StateComponent.State.HURT, loadAnimation("armysoldier/Hurt", 2, 0.1f));
         animations.put(StateComponent.State.ATTACK, loadAnimation("armysoldier/Attack", 6, 0.1f));
         animations.put(StateComponent.State.SUPER_ATTACK, loadAnimation("armysoldier/SuperAttack", 3, 0.1f));
         animations.put(StateComponent.State.DEFENSE, loadAnimation("armysoldier/Defense", 4, 0.1f));

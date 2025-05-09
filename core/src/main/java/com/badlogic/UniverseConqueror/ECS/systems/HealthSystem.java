@@ -7,7 +7,6 @@ import com.badlogic.ashley.core.*;
 import com.badlogic.ashley.utils.ImmutableArray;
 import com.badlogic.gdx.audio.Sound;
 
-// Adiciona uma interface para permitir a comunicação com a UI
 public class HealthSystem extends EntitySystem {
     private ImmutableArray<Entity> entities;
     private ComponentMapper<HealthComponent> hm = ComponentMapper.getFor(HealthComponent.class);
@@ -15,9 +14,8 @@ public class HealthSystem extends EntitySystem {
     private ComponentMapper<PlayerComponent> pm = ComponentMapper.getFor(PlayerComponent.class);
 
     private Sound deathSound, hurtSound;
-    private HealthChangeListener healthChangeListener; // Referência à UI
+    private HealthChangeListener healthChangeListener;
 
-    // Interface para notificar a mudança de saúde
     public interface HealthChangeListener {
         void onHealthChanged(int currentHealth);
     }
@@ -39,25 +37,32 @@ public class HealthSystem extends EntitySystem {
             HealthComponent health = hm.get(entity);
             StateComponent state = sm.get(entity);
 
-            // Verifica se a saúde mudou e notifica a UI
-            if (health.wasDamagedThisFrame) {
-                if (healthChangeListener != null) {
-                    healthChangeListener.onHealthChanged(health.currentHealth);
-                }
+            // Atualiza o cooldown de invulnerabilidade
+            if (health.hurtCooldownTimer > 0f) {
+                health.hurtCooldownTimer -= deltaTime;
+            }
+// Reduz os timers
+            if (health.hurtCooldownTimer > 0f) health.hurtCooldownTimer -= deltaTime;
+            if (health.hurtDuration > 0f) health.hurtDuration -= deltaTime;
+
+            // Se levou dano, muda para HURT
+            if (health.wasDamagedThisFrame && !health.isDead()) {
+                state.set(StateComponent.State.HURT);
+                if (pm.has(entity) && hurtSound != null) hurtSound.play();
+                if (healthChangeListener != null) healthChangeListener.onHealthChanged(health.currentHealth);
                 health.wasDamagedThisFrame = false;
             }
 
-            // Lógica para a morte
+            // Lógica de morte
             if (health.currentHealth <= 0 && state.get() != StateComponent.State.DEATH) {
                 state.set(StateComponent.State.DEATH);
-                if (pm.has(entity)) deathSound.play(); // Só toca som se for o player
+                if (pm.has(entity) && deathSound != null) deathSound.play();
+
             }
 
-            // Lógica para reagir a dano
-            if (health.wasDamagedThisFrame && health.currentHealth > 0) {
-                state.set(StateComponent.State.HURT);
-                if (pm.has(entity)) hurtSound.play();
-                health.wasDamagedThisFrame = false;
+            // Volta para IDLE quando a duração visual acabar
+            if (state.get() == StateComponent.State.HURT && health.hurtDuration <= 0f && !health.isDead()) {
+                state.set(StateComponent.State.IDLE);
             }
         }
     }

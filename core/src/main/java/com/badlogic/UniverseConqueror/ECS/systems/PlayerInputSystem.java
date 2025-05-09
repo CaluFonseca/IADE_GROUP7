@@ -13,7 +13,7 @@ import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.World;
 
 public class PlayerInputSystem extends IteratingSystem {
-    private final ComponentMapper<PositionComponent> pm = ComponentMapper.getFor(PositionComponent.class);
+   /// private final ComponentMapper<PositionComponent> pm = ComponentMapper.getFor(PositionComponent.class);
     private final ComponentMapper<StateComponent> sm = ComponentMapper.getFor(StateComponent.class);
     private final ComponentMapper<PhysicsComponent> phm = ComponentMapper.getFor(PhysicsComponent.class);
     private final ComponentMapper<JumpComponent> jumpMapper = ComponentMapper.getFor(JumpComponent.class);
@@ -34,7 +34,7 @@ public class PlayerInputSystem extends IteratingSystem {
 
     @Override
     protected void processEntity(Entity entity, float deltaTime) {
-        PositionComponent pos = pm.get(entity);
+     //   PositionComponent pos = pm.get(entity);
         StateComponent state = sm.get(entity);
         PhysicsComponent physics = phm.get(entity);
         VelocityComponent velocity = vm.get(entity);
@@ -79,6 +79,11 @@ public class PlayerInputSystem extends IteratingSystem {
 
         // Atualiza a velocidade
         velocity.velocity.set(dx * Constants.PHYSICS_MULTIPLIER, dy * Constants.PHYSICS_MULTIPLIER);
+        System.out.println("STATE ATUAL: " + state.get());
+        if (state.get() == StateComponent.State.HURT || state.get() == StateComponent.State.DEATH) {
+           // velocity.velocity.setZero(); // opcional: para não mover durante HURT
+            return; // ignora input se estiver machucado ou morto
+        }
 
         // Super ataque
         if (state.superAttackTimeLeft > 0) {
@@ -139,3 +144,4 @@ public class PlayerInputSystem extends IteratingSystem {
         }
     }
 }
+

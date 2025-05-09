@@ -51,33 +51,11 @@ public class ItemFactory {
         ItemComponent itemComponent = engine.createComponent(ItemComponent.class);
         itemComponent.name = name;
         entity.add(itemComponent);
-//        // Create and add a tag for item (optional)
-//        TagComponent tag = engine.createComponent(TagComponent.class);
-//        tag.tag = "Item";
-//        entity.add(tag);
 
         return entity;
     }
 
     private Body createBody(World world) {
-//        // Define the Box2D body
-//        BodyDef bodyDef = new BodyDef();
-//        bodyDef.type = BodyDef.BodyType.StaticBody;
-//        bodyDef.position.set(x, y);
-//
-//        Body body = world.createBody(bodyDef);
-//
-//        // Create a rectangle shape for the body
-//        FixtureDef fixtureDef = new FixtureDef();
-//        PolygonShape shape = new PolygonShape();
-//        shape.setAsBox(48 / 2f, 48 / 2f);  // Defina a largura e a altura do retângulo
-//        fixtureDef.shape = shape;
-//        fixtureDef.density = 1f;
-//
-//        body.createFixture(fixtureDef);
-//        body.setUserData(this);  // Optionally link the item object to the body
-//
-//        return body;
         // Define o corpo Box2D como estático
         BodyDef bodyDef = new BodyDef();
         bodyDef.type = BodyDef.BodyType.StaticBody;

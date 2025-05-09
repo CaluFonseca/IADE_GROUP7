@@ -12,7 +12,6 @@ import com.badlogic.ashley.core.PooledEngine;
 import com.badlogic.gdx.Gdx;
 import com.badlogic.gdx.InputMultiplexer;
 import com.badlogic.gdx.Screen;
-import com.badlogic.gdx.graphics.Color;
 import com.badlogic.gdx.graphics.GL20;
 import com.badlogic.gdx.graphics.Texture;
 import com.badlogic.gdx.graphics.g2d.Animation;
@@ -34,14 +33,12 @@ import com.badlogic.gdx.scenes.scene2d.ui.Table;
 import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
 import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
 import com.badlogic.gdx.utils.ObjectMap;
-import com.badlogic.gdx.utils.Array;
 import com.badlogic.gdx.audio.Sound;
 import com.badlogic.gdx.graphics.OrthographicCamera;
 import com.badlogic.gdx.physics.box2d.*;
 import java.util.ArrayList;
 
 import com.badlogic.gdx.utils.viewport.ScreenViewport;
-import com.badlogic.gdx.physics.box2d.Body;
 
 
 public class GameScreen implements Screen {
@@ -71,6 +68,7 @@ public class GameScreen implements Screen {
     private ComponentMapper<AttackComponent> attackMapper;
     private CameraInputSystem cameraInputSystem;
     private Joystick joystick;
+    private MapCollisionHandler collisionHandler;
 
     private Rectangle playerBounds;
     // Constructor
@@ -84,15 +82,15 @@ public class GameScreen implements Screen {
     @Override
     public void show() {
         //  engine = new PooledEngine();
-        initializeCamera();
         initializeAssets();
         initializeWorld();
+        initializeCamera();
         initializePlayer();
         initializeUI();
         initializeSystems();
         initializeItems();
-
         initializeInputProcessor();
+
     }
 
     private void initializeAssets() {
@@ -105,14 +103,19 @@ public class GameScreen implements Screen {
         debugRenderer = new Box2DDebugRenderer();
         map = new TmxMapLoader().load("mapa.tmx");
         mapRenderer = new IsometricTiledMapRenderer(map);
+      //  collisionHandler = new MapCollisionHandler(map, Constants.PPM, world);
+        this.collisionHandler = new MapCollisionHandler(map, "Collisions", "Jumpable");
+        collisionHandler.createBox2DBodies(world);
+        shapeRenderer = new ShapeRenderer();
+        // Create the contact listener
+        MyContactListener myContactListener = new MyContactListener(engine);
 
-        MapCollisionLoader loader = new MapCollisionLoader(map, Constants.PPM);
-        loader.createCollisionBodies(world, map, "Collisions");
-        loader.createCollisionBodies(world, map, "Jumpable");
+// Set the contact listener to the world
+        world.setContactListener(myContactListener);
 
-        System.out.println("Total de corpos no mundo após carregar colisões: " + world.getBodyCount());
-        System.out.println("Mapa carregado: " + map);
-        System.out.println("Corpos no mundo: " + world.getBodyCount());
+     //   System.out.println("Total de corpos no mundo após carregar colisões: " + world.getBodyCount());
+     //   System.out.println("Mapa carregado: " + map);
+      //  System.out.println("Corpos no mundo: " + world.getBodyCount());
     }
 
     private void initializePlayer() {
@@ -128,14 +131,14 @@ public class GameScreen implements Screen {
 
         float mapPixelWidth = mapWidthInTiles * tilePixelWidth;
         float mapPixelHeight = mapHeightInTiles * tilePixelHeight;
-        float centerX = mapWidthInTiles * tilePixelWidth / 2f;
-        float centerY = mapHeightInTiles * tilePixelHeight / 4f;
+        float centerX = (mapWidthInTiles + mapHeightInTiles) * tilePixelWidth / 4f;
+        float centerY = (mapHeightInTiles - mapWidthInTiles) * tilePixelHeight / 4f;
         ObjectMap<String, Sound> sounds = new ObjectMap<>();
 
         player = PlayerFactory.createPlayer(engine, new Vector2(centerX, centerY), anims, sounds, world);
         player.add(new PositionComponent());
         player.add(new VelocityComponent());
-        System.out.println("Jogador criado: " + player);
+      //  System.out.println("Jogador criado: " + player);
     }
 
     private void initializeSystems() {
@@ -151,6 +154,11 @@ public class GameScreen implements Screen {
             map.getProperties().get("height", Integer.class) * map.getProperties().get("tileheight", Integer.class)));
         engine.addSystem(new RenderSystem(new SpriteBatch(), camera));
         engine.addSystem(new ItemCollectionSystem(playerBounds, itemsLabel));
+        engine.addSystem(new HealthSystem(
+            null, // deathSound
+            null, // hurtSound
+            currentHealth -> healthLabel.setText("Health: " + currentHealth)
+        ));
     }
 
     private void initializeUI() {
@@ -238,6 +246,11 @@ public class GameScreen implements Screen {
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.zoom = 1.0f;
+        float mapPixelWidth = map.getProperties().get("width", Integer.class) * map.getProperties().get("tilewidth", Integer.class);
+        float centerX = mapPixelWidth / 2f;
+
+//        camera.position.set(centerX, 0, 0);
+//        camera.update();
     }
 
     private void initializeInputProcessor() {
@@ -269,10 +282,12 @@ public class GameScreen implements Screen {
         Gdx.gl.glClearColor(0, 0, 0, 1);
         Gdx.gl.glClear(GL20.GL_COLOR_BUFFER_BIT);
 
-        world.step(delta, 6, 2);
-       // updateCameraPosition();
+        world.step(1 / 60f, 6, 2);
+
         updateUI(delta);
-       // updateTimer(delta);
+        // Verifica se jogador morreu após o update dos sistemas
+        HealthComponent health = healthMapper.get(player);
+        triggerGameOver(health);
         renderWorld();
         stage.draw();
 
@@ -317,29 +332,70 @@ public class GameScreen implements Screen {
         mapRenderer.setView(camera);
         mapRenderer.render();
         engine.update(Gdx.graphics.getDeltaTime());
-        renderCollisionDebug();
+        //renderCollisionDebug();
         debugRenderer.render(world, camera.combined);
     }
 
-    private void renderCollisionDebug() {
-        shapeRenderer.setProjectionMatrix(camera.combined);
-        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-
-        Array<Body> bodies = new Array<>();
-        world.getBodies(bodies);
-
-        for (Body body : bodies) {
-            if (body.getUserData() instanceof Rectangle) {
-                Rectangle rect = (Rectangle) body.getUserData();
-                if (rect != null && rect.width > 0 && rect.height > 0) {
-                    shapeRenderer.setColor(body.getFixtureList().get(0).isSensor() ? Color.BLUE : Color.RED);
-                    shapeRenderer.rect(rect.x, rect.y, rect.width, rect.height);
-                }
-            }
+    private void triggerGameOver(HealthComponent health) {
+        if (health != null && health.isDead()) {
+            game.setScreen(new GameOverScreen(game));
         }
-
-        shapeRenderer.end();
     }
+//    private void renderCollisionDebug() {
+//        shapeRenderer.setProjectionMatrix(camera.combined);
+//        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
+//
+//        // Cor dos retângulos de colisão do mapa
+//        shapeRenderer.setColor(Color.RED);
+//        for (Rectangle rect : collisionHandler.getCollisionRects()) {
+//            // Converter para coordenadas de tela
+//            Vector2 topLeft = new Vector2(rect.x, rect.y + rect.height);
+//            Vector2 topRight = new Vector2(rect.x + rect.width, rect.y + rect.height);
+//            Vector2 bottomRight = new Vector2(rect.x + rect.width, rect.y);
+//            Vector2 bottomLeft = new Vector2(rect.x, rect.y);
+//
+//            // Desenhar o retângulo como um losango
+//            Vector2 center = new Vector2(rect.x + rect.width / 2, rect.y + rect.height / 2);
+//            shapeRenderer.line(center.x, rect.y, rect.x + rect.width, center.y); // Baixo para direita
+//            shapeRenderer.line(rect.x + rect.width, center.y, center.x, rect.y + rect.height); // Direita para cima
+//            shapeRenderer.line(center.x, rect.y + rect.height, rect.x, center.y); // Cima para esquerda
+//            shapeRenderer.line(rect.x, center.y, center.x, rect.y); // Esquerda para baixo
+//
+////            float centerX = rect.x + rect.width / 2f;
+////            float centerY = rect.y + rect.height / 2f;
+////
+////            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
+////            shapeRenderer.setColor(Color.BLUE);
+////            shapeRenderer.circle(centerX, centerY, 3); // ponto central do retângulo
+////            shapeRenderer.end();
+//        }
+//
+//        // Cor do bounding box do jogador
+////        shapeRenderer.setColor(Color.GREEN);
+////        Rectangle playerBounds = player.getBounds();
+////        shapeRenderer.rect(playerBounds.x, playerBounds.y, playerBounds.width, playerBounds.height);
+//
+//
+//        // Cor dos retângulos de colisão do mapa
+//        shapeRenderer.setColor(Color.BLUE);
+//        for (Rectangle jumpable : collisionHandler.getJumpableRects()) {
+//            // Converter para coordenadas de tela
+//            Vector2 topLeft = new Vector2(jumpable.x, jumpable.y + jumpable.height);
+//            Vector2 topRight = new Vector2(jumpable.x + jumpable.width, jumpable.y + jumpable.height);
+//            Vector2 bottomRight = new Vector2(jumpable.x + jumpable.width, jumpable.y);
+//            Vector2 bottomLeft = new Vector2(jumpable.x, jumpable.y);
+//
+//            // Desenhar o retângulo como um losango
+//            Vector2 center = new Vector2(jumpable.x + jumpable.width / 2, jumpable.y + jumpable.height / 2);
+//            shapeRenderer.line(center.x, jumpable.y, jumpable.x + jumpable.width, center.y); // Baixo para direita
+//            shapeRenderer.line(jumpable.x + jumpable.width, center.y, center.x, jumpable.y + jumpable.height); // Direita para cima
+//            shapeRenderer.line(center.x, jumpable.y + jumpable.height, jumpable.x, center.y); // Cima para esquerda
+//            shapeRenderer.line(jumpable.x, center.y, center.x, jumpable.y); // Esquerda para baixo
+//
+//
+//        }
+//        shapeRenderer.end();
+//    }
 
     @Override
     public void resize(int width, int height) {

@@ -13,7 +13,7 @@ import com.badlogic.gdx.utils.ObjectMap;
 public class PlayerFactory {
 
 
-    public static Entity createPlayer(PooledEngine engine,
+    public static Entity  createPlayer(PooledEngine engine,
                                       Vector2 position,
                                       ObjectMap<StateComponent.State, Animation<TextureRegion>> animations,
                                       ObjectMap<String, Sound> sounds,
@@ -24,13 +24,11 @@ public class PlayerFactory {
         TransformComponent transform = engine.createComponent(TransformComponent.class);
         transform.position.set(position.x, position.y, 0);
 
-//        PositionComponent positionComponent = engine.createComponent(PositionComponent.class);
-//        positionComponent.position.set(position);
-
         // Criar componentes relacionados à física e Box2D
         PhysicsComponent physicsComponent = engine.createComponent(PhysicsComponent.class);
         BodyComponent bodyComponent = createBody(position, world);  // Cria o corpo físico
-        physicsComponent.body = bodyComponent.body;
+        Body body = bodyComponent.body; // <- agora tens acesso ao body
+        physicsComponent.body = body;
 
         // Outros componentes do jogador
         VelocityComponent velocity = engine.createComponent(VelocityComponent.class);
@@ -42,15 +40,10 @@ public class PlayerFactory {
         SoundComponent sound = engine.createComponent(SoundComponent.class);
         sound.sounds.putAll(sounds);
 
-
         PositionComponent positionComponent = new PositionComponent();
         positionComponent.position.set(position.x, position.y);
 
-     //   TransformComponent transformComponent = new TransformComponent(position.x, position.y);
-        CameraComponent cameraComponent = new CameraComponent(); // precisa ter isto para seguir o player
-
-//        ParticleComponent particle = engine.createComponent(ParticleComponent.class);
-//        particle.effects.addAll(effects);
+        CameraComponent cameraComponent = new CameraComponent();
 
         AttackComponent attack = engine.createComponent(AttackComponent.class);
         JumpComponent jump = engine.createComponent(JumpComponent.class);
@@ -72,38 +65,51 @@ public class PlayerFactory {
         entity.add(health);
         // Adiciona o componente de física que contém o Body do Box2D
         entity.add(bodyComponent);
-
+        body.setUserData(entity);
         // Adiciona a entidade à engine
         engine.addEntity(entity);
-
         return entity;
     }
 
     // Função para criar o corpo físico usando Box2D
     public static BodyComponent createBody(Vector2 position, World world) {
         BodyDef bodyDef = new BodyDef();
-        bodyDef.position.set(position);
-        bodyDef.type = BodyDef.BodyType.DynamicBody;
+        bodyDef.position.set(position);  // Define a posição do corpo no mundo (centro do jogador)
+        bodyDef.type = BodyDef.BodyType.DynamicBody;  // Corpo dinâmico
 
-        // Criar o corpo no mundo Box2D
+        // Criação do corpo no mundo
         Body body = world.createBody(bodyDef);
 
-        // Definir forma e propriedades físicas do corpo
+        // Criando a forma de colisão (garantindo que ela esteja centralizada)
         PolygonShape shape = new PolygonShape();
-        shape.setAsBox(30f, 30f, new Vector2(0, 45f), 0f); // Ajuste conforme o tamanho do sprite
+        shape.setAsBox(40f, 40f);  // Forma de colisão centralizada (box de 64x64)
 
+        // Definição do fixture para o corpo
         FixtureDef fixtureDef = new FixtureDef();
         fixtureDef.shape = shape;
-        fixtureDef.density = 1.0f;
-        fixtureDef.friction = 0.5f;
-        fixtureDef.restitution = 0.3f;
+        fixtureDef.density = 1.0f;  // Definir a densidade do jogador
+        fixtureDef.friction = 0.5f;  // Fricção para controlar deslizamento
+        fixtureDef.restitution = 0.3f;  // Baixa restituição para evitar quicar
 
+        // Aplica o fixture ao corpo
         body.createFixture(fixtureDef);
+
+        // Ajuste do centro de massa (garantindo que está no centro do corpo)
+//        MassData massData = new MassData();
+//        massData.center.set(0, 0);  // Definir o centro de massa no centro do corpo
+//        massData.mass = 1.0f;       // Defina a massa do jogador (ajuste conforme necessário)
+//        massData.I = 0.1f;          // Definindo a inércia (resistência à rotação)
+//        body.setMassData(massData); // Aplicando os dados de massa ao corpo
+
+
+        // Descartar o shape após o uso para liberar memória
         shape.dispose();
 
-        // Criar e retornar o componente
+        // Criando o BodyComponent e retornando
         BodyComponent bodyComponent = new BodyComponent();
         bodyComponent.body = body;
         return bodyComponent;
     }
+
+
 }

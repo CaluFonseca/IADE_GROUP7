@@ -7,28 +7,35 @@ import com.badlogic.gdx.maps.tiled.TiledMap;
 import com.badlogic.gdx.math.Rectangle;
 import com.badlogic.gdx.math.Vector2;
 import com.badlogic.gdx.physics.box2d.*;
+import com.badlogic.gdx.utils.Array;
 
 public class MapCollisionLoader {
     private final float tileWidth;
     private final float tileHeight;
-    private final float mapHeight;
-    private final float ppm; // Pixels por metro
+    private final float mapHeight, mapWidth;
+    private final float ppm; // Pixels per meter
+    private final float mapWidthInTiles, mapHeightInTiles, mapCenterIsoX, mapCenterIsoY;
+    private final Array<Rectangle> collisionRects;
 
     public MapCollisionLoader(TiledMap map, float ppm) {
         this.ppm = ppm;
         this.tileWidth = map.getProperties().get("tilewidth", Integer.class);
         this.tileHeight = map.getProperties().get("tileheight", Integer.class);
-        this.mapHeight = map.getProperties().get("height", Integer.class) ;
+        this.mapHeight = map.getProperties().get("height", Integer.class);
+        this.mapWidth = map.getProperties().get("width", Integer.class);
+
+        mapWidthInTiles = map.getProperties().get("width", Integer.class);
+        mapHeightInTiles = map.getProperties().get("height", Integer.class);
+        mapCenterIsoX = (mapWidthInTiles - mapHeightInTiles) * tileWidth / 2f;
+        mapCenterIsoY = (mapWidthInTiles + mapHeightInTiles) * tileHeight / 4f;
+        collisionRects = new Array<>();
     }
 
-    /**
-     * Cria os corpos de colisão Box2D a partir de uma camada específica do mapa.
-     */
     public void createCollisionBodies(World world, TiledMap map, String layerName) {
         MapLayer layer = map.getLayers().get(layerName);
 
         if (layer == null) {
-            System.out.println("Camada '" + layerName + "' não encontrada.");
+            System.out.println("Layer '" + layerName + "' not found.");
             return;
         }
 
@@ -37,70 +44,84 @@ public class MapCollisionLoader {
 
             Rectangle rect = ((RectangleMapObject) object).getRectangle();
 
-            // Usa coordenadas convertidas para isométricas
-            Vector2 isoPosition = convertToWorldCoordinates(rect);
+            // Convert coordinates to isometric world space
+            Rectangle isoPosition = convertToWorldCoordinates(rect);
 
             short categoryBits = getCategoryBitsForLayer(layerName);
             boolean isSensor = isSensorLayer(layerName);
-            /*System.out.println("[DEBUG] Corpo criado na posição: " + isoPosition +
-                " | Tamanho: " + (width / ppm) + "x" + (height / ppm) +
-                " | Categoria: " + categoryBits +
-                " | Sensor: " + isSensor);*/
-            createBox2DBody(world, isoPosition, rect.width, rect.height, categoryBits, isSensor);
+            createIsometricDiamond(world, isoPosition, 256f, 128f, categoryBits, false, Constants.PPM);
         }
     }
 
     /**
-     * Converte coordenadas ortogonais do mapa para mundo isométrico.
+     * Converts orthogonal map coordinates to isometric world coordinates.
      */
-    private Vector2 convertToWorldCoordinates(Rectangle rect) {
+    private Rectangle convertToWorldCoordinates(Rectangle rect) {
+        // Calculate the center of the rectangle (tile)
         float centerX = rect.x + rect.width / 2f;
         float centerY = rect.y + rect.height / 2f;
 
-        // Conversão ortogonal → isométrico
-        float isoX = (centerX - centerY) * (tileWidth / 2f);
-        float isoY = (centerX + centerY) * (tileHeight / 2f);
+        // Convert to isometric coordinates
+        float isoX = centerX - centerY;
+        float isoY = (centerX + centerY) / 2f;
 
-        // Corrigir origem: subtrair meio da altura do mapa em iso
-        isoY -= mapHeight * (tileHeight / 2f) / tileHeight;
+        // Adjust the map center to correctly align the tiles
+        float finalX = (isoX + mapCenterIsoX) / ppm; // Centralize on the X axis
+        float finalY = (isoY - mapCenterIsoY) / ppm; // Centralize on the Y axis
 
-        return new Vector2(isoX / ppm, isoY / ppm);
+        // Print the calculated positions for debugging
+        System.out.println("Tile (rect): " + rect.x + ", " + rect.y + " | Isometric position: " + finalX + ", " + finalY);
+
+        // Create a rectangle in world space with the adjusted position
+        return new Rectangle(finalX, finalY, rect.width / ppm, rect.height / ppm);
     }
 
     /**
-     * Cria um corpo estático Box2D a partir da posição e dimensões fornecidas.
+     * Creates a static Box2D body from the position and dimensions.
      */
-    private void createBox2DBody(World world, Vector2 isoPosition, float width, float height, short categoryBits, boolean isSensor) {
+    public Body createIsometricDiamond(World world, Rectangle pixelPosition, float widthPx, float heightPx, short categoryBits, boolean isSensor, float ppm) {
+        // Conversion to meters
+        Vector2 position = new Vector2(pixelPosition.x+128, pixelPosition.y);
+
         BodyDef bodyDef = new BodyDef();
-        bodyDef.type = BodyDef.BodyType.StaticBody; // Corrigido para estático
-        bodyDef.position.set(isoPosition);
+        bodyDef.type = BodyDef.BodyType.StaticBody;
+        bodyDef.position.set(position.x, position.y);
 
         Body body = world.createBody(bodyDef);
 
+        float width = widthPx;
+        float height = heightPx;
+
         PolygonShape shape = new PolygonShape();
-        shape.setAsBox((width / 2f) / ppm, (height / 2f) / ppm); // Corrigido: escala por PPM
+        Vector2[] vertices = new Vector2[4];
+
+        // Create the diamond (clockwise)
+        vertices[0] = new Vector2(0, height / 2f);        // top
+        vertices[1] = new Vector2(width / 2f, 0);         // right
+        vertices[2] = new Vector2(0, -height / 2f);       // bottom
+        vertices[3] = new Vector2(-width / 2f, 0);        // left
+
+        shape.set(vertices);
 
         FixtureDef fixtureDef = new FixtureDef();
         fixtureDef.shape = shape;
         fixtureDef.friction = 0.8f;
         fixtureDef.isSensor = isSensor;
-
         fixtureDef.filter.categoryBits = categoryBits;
         fixtureDef.filter.maskBits = -1;
 
         body.createFixture(fixtureDef);
 
+        // Adjustment for rendering/debug purposes
         body.setUserData(new Rectangle(
-            isoPosition.x - (width / 2f) / ppm,
-            isoPosition.y - (height / 2f) / ppm,
-            width / ppm,
-            height / ppm
+            pixelPosition.x - widthPx / 2f,
+            pixelPosition.y - heightPx / 2f,
+            widthPx,
+            heightPx
         ));
-        System.out.println("[DEBUG] Corpo criado na posição: " + isoPosition +
-            " | Tamanho: " + (width / ppm) + "x" + (height / ppm) +
-            " | Categoria: " + categoryBits +
-            " | Sensor: " + isSensor);
+
         shape.dispose();
+        return body;
     }
 
     private short getCategoryBitsForLayer(String layerName) {

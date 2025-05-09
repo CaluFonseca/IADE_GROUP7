@@ -38,10 +38,10 @@ public class RenderSystem extends IteratingSystem {
             // Debugging the flipping logic
             // System.out.println("facingRight: " + animation.facingRight);
 
-            // Apply scaling
-            float scale = 0.4f;
-            float drawWidth = frame.getRegionWidth() * scale;
-            float drawHeight = frame.getRegionHeight() * scale;
+//            // Apply scaling
+//            float scale = 1f;
+//            float drawWidth = frame.getRegionWidth() * scale;
+//            float drawHeight = frame.getRegionHeight() * scale;
 
             // Flip logic if facing left
             if (frame.isFlipX()) {
@@ -53,13 +53,17 @@ public class RenderSystem extends IteratingSystem {
             }
 
             // Use PositionComponent for position
-            float x = position.position.x - drawWidth / 2f;  // Center the player horizontally
+            float x = position.position.x ;  // Center the player horizontally
             float y = position.position.y;
 
             // Draw the sprite
-            batch.draw(frame, x, y, drawWidth, drawHeight);
-
-
+         //   batch.draw(frame, x, y, drawWidth, drawHeight);
+          batch.draw(frame,position.position.x - frame.getRegionWidth() / 2,position.position.y - frame.getRegionHeight() / 2);
+//            float offsetX = drawWidth / 2;
+//            float offsetY = drawHeight / 2;
+//
+//// Adjust the position to center the texture
+//            batch.draw(frame, x - offsetX, y - offsetY, drawWidth, drawHeight);
         }
 
     }

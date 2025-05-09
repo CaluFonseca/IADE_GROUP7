@@ -53,7 +53,7 @@ public class JumpSystem extends EntitySystem {
                 jump.canJump = true;
             }
             // Se a animação de pulo acabou (duração expirou), muda para o estado de queda ou idle
-            if (jump.jumpDuration <= 0 && body.body.getLinearVelocity().x <= 0) {
+            if (jump.jumpDuration <= 0 && body.body.getLinearVelocity().x <= 0 && (state.currentState == StateComponent.State.JUMP || state.currentState == StateComponent.State.WALK)) {
                 state.set(StateComponent.State.IDLE); // Ou STATE.IDLE se preferir
             }
         }

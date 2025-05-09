@@ -28,7 +28,7 @@ public class MovementSystem extends IteratingSystem {
             float deltaX = velocity.velocity.x * deltaTime; // Ajusta com o deltaTime
             float deltaY = velocity.velocity.y * deltaTime;
             physics.body.setLinearVelocity(deltaX, deltaY);
-            System.out.println("Physics: " + physics.body.getWorldCenter()+"\n velocidade:"+velocity.velocity);
+           // System.out.println("Physics: " + physics.body.getWorldCenter()+"\n velocidade:"+velocity.velocity);
             // Atualiza a posição do TransformComponent
             TransformComponent transform = tm.get(entity);
             transform.position.set(physics.body.getPosition().x, physics.body.getPosition().y, transform.position.z);

@@ -69,8 +69,10 @@ public class GameScreen implements Screen {
     private CameraInputSystem cameraInputSystem;
     private Joystick joystick;
     private MapCollisionHandler collisionHandler;
-
+    private ItemCollectionSystem itemCollectionSystem;
+    private AttackSystem attackSystem;
     private Rectangle playerBounds;
+    private float centerX, centerY;
     // Constructor
     public GameScreen(GameLauncher game) {
         this.game = game;
@@ -90,7 +92,7 @@ public class GameScreen implements Screen {
         initializeSystems();
         initializeItems();
         initializeInputProcessor();
-
+        createContactListener();
     }
 
     private void initializeAssets() {
@@ -107,11 +109,7 @@ public class GameScreen implements Screen {
         this.collisionHandler = new MapCollisionHandler(map, "Collisions", "Jumpable");
         collisionHandler.createBox2DBodies(world);
         shapeRenderer = new ShapeRenderer();
-        // Create the contact listener
-        MyContactListener myContactListener = new MyContactListener(engine);
 
-// Set the contact listener to the world
-        world.setContactListener(myContactListener);
 
      //   System.out.println("Total de corpos no mundo após carregar colisões: " + world.getBodyCount());
      //   System.out.println("Mapa carregado: " + map);
@@ -131,8 +129,8 @@ public class GameScreen implements Screen {
 
         float mapPixelWidth = mapWidthInTiles * tilePixelWidth;
         float mapPixelHeight = mapHeightInTiles * tilePixelHeight;
-        float centerX = (mapWidthInTiles + mapHeightInTiles) * tilePixelWidth / 4f;
-        float centerY = (mapHeightInTiles - mapWidthInTiles) * tilePixelHeight / 4f;
+        centerX = (mapWidthInTiles + mapHeightInTiles) * tilePixelWidth / 4f;
+        centerY = (mapHeightInTiles - mapWidthInTiles) * tilePixelHeight / 4f;
         ObjectMap<String, Sound> sounds = new ObjectMap<>();
 
         player = PlayerFactory.createPlayer(engine, new Vector2(centerX, centerY), anims, sounds, world);
@@ -153,7 +151,12 @@ public class GameScreen implements Screen {
         engine.addSystem(new CameraSystem(camera, map.getProperties().get("width", Integer.class) * map.getProperties().get("tilewidth", Integer.class),
             map.getProperties().get("height", Integer.class) * map.getProperties().get("tileheight", Integer.class)));
         engine.addSystem(new RenderSystem(new SpriteBatch(), camera));
-        engine.addSystem(new ItemCollectionSystem(playerBounds, itemsLabel));
+        attackSystem= new AttackSystem();
+        attackSystem.setEngine(engine);
+        engine.addSystem(attackSystem);
+        itemCollectionSystem = new ItemCollectionSystem(playerBounds, itemsLabel,attackSystem);
+
+        engine.addSystem(itemCollectionSystem);
         engine.addSystem(new HealthSystem(
             null, // deathSound
             null, // hurtSound
@@ -210,13 +213,14 @@ public class GameScreen implements Screen {
 
     private void initializeLabels() {
         healthMapper = ComponentMapper.getFor(HealthComponent.class);
-        attackMapper = ComponentMapper.getFor(AttackComponent.class);
+
 
         HealthComponent healthComponent = healthMapper.get(player);
-        AttackComponent attackComponent = attackMapper.get(player);
+
+
 
         healthLabel = new Label("Health: " + healthComponent.currentHealth, skin);
-        attackPowerLabel = new Label("Attack: " + attackComponent.remainingAttackPower, skin);
+        attackPowerLabel = new Label("Attack: " , skin);
         itemsLabel = new Label("Items: 0", skin);
         // UI skin setup
         uiskinTexture = new Texture("ui/uiskin.png");
@@ -246,11 +250,7 @@ public class GameScreen implements Screen {
         camera = new OrthographicCamera();
         camera.setToOrtho(false, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
         camera.zoom = 1.0f;
-        float mapPixelWidth = map.getProperties().get("width", Integer.class) * map.getProperties().get("tilewidth", Integer.class);
-        float centerX = mapPixelWidth / 2f;
 
-//        camera.position.set(centerX, 0, 0);
-//        camera.update();
     }
 
     private void initializeInputProcessor() {
@@ -262,8 +262,6 @@ public class GameScreen implements Screen {
 
     private void initializeItems() {
         ArrayList<ItemFactory> items = new ArrayList<>();
-        float centerX = map.getProperties().get("width", Integer.class) * map.getProperties().get("tilewidth", Integer.class) / 2f;
-        float centerY = map.getProperties().get("height", Integer.class) * map.getProperties().get("tileheight", Integer.class) / 4f;
 
         items.add(new ItemFactory("Vida", centerX + 100, centerY, "item.png"));
         items.add(new ItemFactory("Ataque", centerX + 150, centerY + 50, "bullet_item.png"));
@@ -277,6 +275,13 @@ public class GameScreen implements Screen {
         engine.addSystem(new RenderItemSystem(batchItem, camera));
 
     }
+
+    private void createContactListener() {
+        // Cria o MyContactListener e configura o contact listener para o mundo Box2D
+        MyContactListener myContactListener = new MyContactListener(engine, itemCollectionSystem);
+        world.setContactListener(myContactListener);
+    }
+
     @Override
     public void render(float delta) {
         Gdx.gl.glClearColor(0, 0, 0, 1);
@@ -288,6 +293,9 @@ public class GameScreen implements Screen {
         // Verifica se jogador morreu após o update dos sistemas
         HealthComponent health = healthMapper.get(player);
         triggerGameOver(health);
+
+        itemsLabel.setText("Items: " + itemCollectionSystem.getCollectedCount());
+        attackPowerLabel.setText("Attack: " + attackSystem.getRemainingAttackPower());
         renderWorld();
         stage.draw();
 
@@ -341,61 +349,6 @@ public class GameScreen implements Screen {
             game.setScreen(new GameOverScreen(game));
         }
     }
-//    private void renderCollisionDebug() {
-//        shapeRenderer.setProjectionMatrix(camera.combined);
-//        shapeRenderer.begin(ShapeRenderer.ShapeType.Line);
-//
-//        // Cor dos retângulos de colisão do mapa
-//        shapeRenderer.setColor(Color.RED);
-//        for (Rectangle rect : collisionHandler.getCollisionRects()) {
-//            // Converter para coordenadas de tela
-//            Vector2 topLeft = new Vector2(rect.x, rect.y + rect.height);
-//            Vector2 topRight = new Vector2(rect.x + rect.width, rect.y + rect.height);
-//            Vector2 bottomRight = new Vector2(rect.x + rect.width, rect.y);
-//            Vector2 bottomLeft = new Vector2(rect.x, rect.y);
-//
-//            // Desenhar o retângulo como um losango
-//            Vector2 center = new Vector2(rect.x + rect.width / 2, rect.y + rect.height / 2);
-//            shapeRenderer.line(center.x, rect.y, rect.x + rect.width, center.y); // Baixo para direita
-//            shapeRenderer.line(rect.x + rect.width, center.y, center.x, rect.y + rect.height); // Direita para cima
-//            shapeRenderer.line(center.x, rect.y + rect.height, rect.x, center.y); // Cima para esquerda
-//            shapeRenderer.line(rect.x, center.y, center.x, rect.y); // Esquerda para baixo
-//
-////            float centerX = rect.x + rect.width / 2f;
-////            float centerY = rect.y + rect.height / 2f;
-////
-////            shapeRenderer.begin(ShapeRenderer.ShapeType.Filled);
-////            shapeRenderer.setColor(Color.BLUE);
-////            shapeRenderer.circle(centerX, centerY, 3); // ponto central do retângulo
-////            shapeRenderer.end();
-//        }
-//
-//        // Cor do bounding box do jogador
-////        shapeRenderer.setColor(Color.GREEN);
-////        Rectangle playerBounds = player.getBounds();
-////        shapeRenderer.rect(playerBounds.x, playerBounds.y, playerBounds.width, playerBounds.height);
-//
-//
-//        // Cor dos retângulos de colisão do mapa
-//        shapeRenderer.setColor(Color.BLUE);
-//        for (Rectangle jumpable : collisionHandler.getJumpableRects()) {
-//            // Converter para coordenadas de tela
-//            Vector2 topLeft = new Vector2(jumpable.x, jumpable.y + jumpable.height);
-//            Vector2 topRight = new Vector2(jumpable.x + jumpable.width, jumpable.y + jumpable.height);
-//            Vector2 bottomRight = new Vector2(jumpable.x + jumpable.width, jumpable.y);
-//            Vector2 bottomLeft = new Vector2(jumpable.x, jumpable.y);
-//
-//            // Desenhar o retângulo como um losango
-//            Vector2 center = new Vector2(jumpable.x + jumpable.width / 2, jumpable.y + jumpable.height / 2);
-//            shapeRenderer.line(center.x, jumpable.y, jumpable.x + jumpable.width, center.y); // Baixo para direita
-//            shapeRenderer.line(jumpable.x + jumpable.width, center.y, center.x, jumpable.y + jumpable.height); // Direita para cima
-//            shapeRenderer.line(center.x, jumpable.y + jumpable.height, jumpable.x, center.y); // Cima para esquerda
-//            shapeRenderer.line(jumpable.x, center.y, center.x, jumpable.y); // Esquerda para baixo
-//
-//
-//        }
-//        shapeRenderer.end();
-//    }
 
     @Override
     public void resize(int width, int height) {
